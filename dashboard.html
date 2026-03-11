@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SmartFeed - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="navbar">
+    <h2>SmartFeed</h2>
+    <button onclick="logout()" style="
+        width: 100px;">Logout</button>
+</div> 
+<div class="container">
+
+    <h1>Dashboard</h1>
+
+    <!-- Stats -->
+    <div class="stats">
+        <div class="card">
+            <h2 id="totalCount">0</h2>
+            <p>Total Feedback</p>
+        </div>
+        <div class="card">
+            <h2 id="positiveCount">0</h2>
+            <p>Positive</p>
+        </div>
+        <div class="card">
+            <h2 id="negativeCount">0</h2>
+            <p>Negative</p>
+        </div>
+    </div>
+
+    <!-- Give Feedback -->
+    <div class="feedback-box">
+        <h2>Give Feedback</h2>
+
+        <select id="facultySelect">
+            <option value="">Select Faculty</option>
+        </select>
+
+        <textarea id="feedbackMessage" placeholder="Write your feedback"></textarea>
+
+        <button onclick="submitFeedback()">Submit</button>
+    </div>
+
+    <!-- Feedback History -->
+    <div class="history">
+        <h2>Feedback History</h2>
+        <div id="feedbackList"></div>
+    </div>
+
+</div>
+
+<script>
+
+let user = JSON.parse(localStorage.getItem("user"));
+
+if (!user) {
+    window.location.href = "login.html";
+}
+
+// ================= LOAD USERS =================
+function loadUsers() {
+
+    let roleToFetch = user.role === "student" ? "faculty" : "student";
+
+    fetch("http://127.0.0.1:5000/users/" + roleToFetch)
+    .then(res => res.json())
+    .then(data => {
+
+        let dropdown = document.getElementById("facultySelect");
+        dropdown.innerHTML = '<option value="">Select Faculty</option>';
+
+        data.forEach(u => {
+            dropdown.innerHTML += 
+            `<option value="${u.id}">${u.name}</option>`;
+        });
+
+    })
+    .catch(err => console.log(err));
+}
+
+// ================= SUBMIT FEEDBACK =================
+function submitFeedback() {
+
+    let to_user = document.getElementById("facultySelect").value;
+    let message = document.getElementById("feedbackMessage").value;
+
+    if (!to_user || !message) {
+        alert("Please fill all fields");
+        return;
+    }
+
+    fetch("http://127.0.0.1:5000/give-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            from_user: user.id,
+            to_user: to_user,
+            message: message
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(data.message);
+        document.getElementById("feedbackMessage").value = "";
+        loadFeedback();
+    });
+}
+
+// ================= LOAD FEEDBACK =================
+function loadFeedback() {
+
+    fetch("http://127.0.0.1:5000/feedback/" + user.id)
+    .then(res => res.json())
+    .then(data => {
+
+        let list = document.getElementById("feedbackList");
+        list.innerHTML = "";
+
+        let total = data.length;
+        let positive = 0;
+        let negative = 0;
+
+        data.forEach(f => {
+
+            let badgeClass = "";
+            if (f.sentiment === "Positive") {
+                badgeClass = "badge positive";
+                positive++;
+            } else {
+                badgeClass = "badge negative";
+                negative++;
+            }
+
+            list.innerHTML += `
+                <div class="feedback-card">
+                    <p>${f.message}</p>
+                    <span class="${badgeClass}">
+                        ${f.sentiment}
+                    </span>
+                </div>
+            `;
+        });
+
+        document.getElementById("totalCount").innerText = total;
+        document.getElementById("positiveCount").innerText = positive;
+        document.getElementById("negativeCount").innerText = negative;
+    });
+}
+
+// ================= LOGOUT =================
+function logout() {
+    localStorage.removeItem("user");
+    window.location.href = "login.html";
+}
+
+// Load everything on page load
+loadUsers();
+loadFeedback();
+
+</script>
+
+</body>
+</html>
